@@ -1,8 +1,15 @@
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
+// Підключаємо необхідні модулі
+const http = require('http'); // Для створення веб-сервера
+const fs = require('fs');     // Для читання файлів
+const path = require('path');   // Для роботи зі шляхами до файлів
+
+// Підключаємо наш модуль для роботи з базою даних. 
+// Тепер у змінній `db` лежить об'єкт { getMessages, addMessage }.
 const db = require('./database'); 
 
+// === Підготовка статичних файлів (HTML, CSS, JS) ===
+// Ми читаємо файли в пам'ять ОДИН РАЗ при запуску сервера.
+// Це ефективніше, ніж читати їх з диска при кожному запиті.
 const pathToIndex = path.join(__dirname, 'static', 'index.html');
 const indexHtmlFile = fs.readFileSync(pathToIndex);
 
@@ -12,32 +19,52 @@ const scriptFile = fs.readFileSync(pathToScript);
 const pathToStyle = path.join(__dirname, 'static', 'style.css');
 const styleFile = fs.readFileSync(pathToStyle);
 
+// Створюємо HTTP сервер, який буде віддавати наші файли
 const server = http.createServer((req, res) => {
+    // Використовуємо switch для простої маршрутизації
     switch(req.url) {
-        case '/': return res.end(indexHtmlFile);
-        case '/index.js': return res.end(scriptFile);
-        case '/style.css': return res.end(styleFile);
+        case '/': return res.end(indexHtmlFile);     // Якщо зайшли на головну, віддаємо HTML
+        case '/index.js': return res.end(scriptFile); // Якщо браузер просить скрипт, віддаємо JS
+        case '/style.css': return res.end(styleFile);  // Якщо браузер просить стилі, віддаємо CSS
     }
+    // Якщо запитали невідому адресу, повертаємо помилку 404
     res.statusCode = 404;
     return res.end('Error 404');
 });
 
+// Запускаємо сервер на 3000 порту
 server.listen(3000);
 
+// === Налаштування WebSocket (Socket.IO) ===
+// Підключаємо клас Server з бібліотеки socket.io
 const { Server } = require("socket.io");
 
+// Створюємо екземпляр сокет-сервера, "прив'язуючи" його до нашого HTTP-сервера
 const io = new Server(server);
 
-io.on('connection', async (socket) => {
+// Головний слухач подій. Цей код спрацьовує щоразу, коли новий користувач відкриває чат
+io.on('connection', async (socket) => { // Робимо функцію асинхронною, бо чекаємо на відповідь від БД
+    
+    // Виводимо в консоль сервера інформацію про нового користувача
     console.log('a user connected. id - ' + socket.id);
 
+    // Встановлюємо нікнейм за замовчуванням (поки що для всіх однаковий)
     let userNickname = 'admin';
+    
+    // Отримуємо історію повідомлень з бази даних
     let messages = await db.getMessages();
 
+    // Відправляємо всю історію повідомлень ТІЛЬКИ ЦЬОМУ новому користувачу
+    // socket.emit - відправка одному, io.emit - відправка всім
     socket.emit('all_messages', messages);
 
+    // Створюємо слухач для події 'new_message', яку нам надсилає клієнт
     socket.on('new_message', (message) => {
+        
+        // 1. Зберігаємо отримане повідомлення в базу даних (поки що автор завжди user_id=1)
         db.addMessage(message, 1);
+        
+        // 2. Розсилаємо це повідомлення ВСІМ підключеним користувачам
         io.emit('message', `${userNickname}: ${message}`);
     });
 });
