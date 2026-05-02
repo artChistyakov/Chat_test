@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const db = require('./database'); 
 
 const pathToIndex = path.join(__dirname, 'static', 'index.html');
 const indexHtmlFile = fs.readFileSync(pathToIndex);
@@ -27,16 +28,16 @@ const { Server } = require("socket.io");
 
 const io = new Server(server);
 
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
     console.log('a user connected. id - ' + socket.id);
 
-    let userNickname = 'user';
+    let userNickname = 'admin';
+    let messages = await db.getMessages();
 
-    socket.on('set_nickname', (nickname) => {
-        userNickname = nickname;
-    })
+    socket.emit('all_messages', messages);
 
     socket.on('new_message', (message) => {
-        io.emit('message', message);
+        db.addMessage(message, 1);
+        io.emit('message', `${userNickname}: ${message}`);
     });
 });
