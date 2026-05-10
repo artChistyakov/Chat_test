@@ -19,18 +19,56 @@ const scriptFile = fs.readFileSync(pathToScript);
 const pathToStyle = path.join(__dirname, 'static', 'style.css');
 const styleFile = fs.readFileSync(pathToStyle);
 
+const pathToAuth = path.join(__dirname, 'static', 'auth.js');
+const authFile = fs.readFileSync(pathToAuth);
+
+const pathToRegister = path.join(__dirname, 'static', 'register.html');
+const registerFile = fs.readFileSync(pathToRegister);
+
 // Створюємо HTTP сервер, який буде віддавати наші файли
 const server = http.createServer((req, res) => {
     // Використовуємо switch для простої маршрутизації
     switch(req.url) {
         case '/': return res.end(indexHtmlFile);     // Якщо зайшли на головну, віддаємо HTML
         case '/index.js': return res.end(scriptFile); // Якщо браузер просить скрипт, віддаємо JS
-        case '/style.css': return res.end(styleFile);  // Якщо браузер просить стилі, віддаємо CSS
+        case '/auth.js': return res.end(authFile); 
+        case '/style.css': return res.end(styleFile); // Якщо браузер просить стилі, віддаємо CSS
+        case '/register': return res.end(registerFile);  
+    }
+
+    if (req.method == 'POST') {
+        switch(req.url) {
+            case '/api/register': return registerUser(req, res);
+        }
+        return res.end('Error 404');
     }
     // Якщо запитали невідому адресу, повертаємо помилку 404
     res.statusCode = 404;
     return res.end('Error 404');
 });
+
+function registerUser(req, res) {
+    let data = '';
+    req.on('data', function(chunk) {
+        data += chunk;
+    });
+    req.on('end', async function () {
+        try {
+            const user = JSON.parse(data);
+            if(!user.login || !user.password) {
+                return res.end('Empty login or passwors');
+            }
+            if(await db.isUserExist(user.login)) {
+                return res.end('User already exist');
+            }
+            await db.addUser(user);
+            return res.end('Registration is successfull');
+        }
+        catch(e) {
+            return res.end('Error: ' + e);
+        }
+    });
+}
 
 // Запускаємо сервер на 3000 порту
 server.listen(3000);
