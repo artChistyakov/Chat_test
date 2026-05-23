@@ -171,8 +171,10 @@ function login(req, res) {
 }
 
 // Запускаємо сервер на 3000 порту
-server.listen(3000);
-console.log("Сервер працює на порту 3000");
+server.listen(process.env.PORT || 3000, () => {
+    console.log("Сервер запущено!");
+});
+
 
 // === Налаштування сокетів (Socket.IO) ===
 const { Server } = require("socket.io");
