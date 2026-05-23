@@ -36,26 +36,28 @@ const loginFile = fs.readFileSync(pathToLogin);
 
 // Створюємо головний HTTP сервер
 const server = http.createServer((req, res) => {
-    
-    // 1. Обробка GET-запитів (коли користувач просить файл або сторінку)
     if(req.method === 'GET'){
         switch(req.url) {
-            case '/auth.js': return res.end(authFile); 
-            case '/style.css': return res.end(styleFile); 
-            case '/register': return res.end(registerFile);  
-            case '/login': return res.end(loginFile); 
-            // Якщо це будь-яка інша адреса (наприклад "/" чи "/index.js"),
-            // відправляємо запит до "охоронця" guarded.
+            case '/register': 
+                res.writeHead(200, {'Content-Type': 'text/html'}); // Додано
+                return res.end(registerFile);  
+            case '/login': 
+                res.writeHead(200, {'Content-Type': 'text/html'}); // Додано
+                return res.end(loginFile); 
+            case '/auth.js': 
+                res.writeHead(200, {'Content-Type': 'text/javascript'}); // Додано
+                return res.end(authFile); 
+            case '/style.css': 
+                res.writeHead(200, {'Content-Type': 'text/css'}); // Обовязково для стилів!
+                return res.end(styleFile); 
             default: return guarded(req, res); 
         }
     }
 
-    // 2. Обробка POST-запитів (коли користувач надсилає дані, наприклад форму)
     if (req.method == 'POST') {
         switch(req.url) {
             case '/api/register': return registerUser(req, res);
             case '/api/login': return login(req, res);
-            // Якщо невідомий POST запит - відправляємо до guarded
             default: return guarded(req, res);
         }
     }
@@ -64,25 +66,24 @@ const server = http.createServer((req, res) => {
 // Функція "Охоронець" (guarded)
 // Вона захищає приватні файли (index.html та index.js) від неавторизованих користувачів
 function guarded(req, res) {
-    // Перевіряємо, чи є в кукі дійсний токен авторизації
-    const credentionals = getCredentionals(req.headers?.cookie);
+    const credentials = getCredentionals(req);
 
-    // Якщо користувач не авторизований (getCredentionals повернув null)
-    if(!credentionals) {
-        // Робимо редирект (код 302) і кажемо браузеру перенаправити людину на сторінку реєстрації
+    if(!credentials) {
         res.writeHead(302, {'Location': '/register'});
-        return res.end(); // Обов'язково завершуємо роботу, щоб код нижче не виконувався
+        return res.end();
     }
 
-    // Якщо користувач пройшов фейс-контроль, віддаємо йому приватні файли
     if(req.method === 'GET') {
         switch(req.url) {
-            case '/': return res.end(indexHtmlFile);
-            case '/index.js': return res.end(scriptFile);
+            case '/': 
+                res.writeHead(200, {'Content-Type': 'text/html'}); // Додано
+                return res.end(indexHtmlFile);
+            case '/index.js': 
+                res.writeHead(200, {'Content-Type': 'text/javascript'}); // Додано
+                return res.end(scriptFile);
         }
     }
 
-    // Якщо ми дійшли сюди — файл не знайдено, відправляємо 404
     res.writeHead(404);
     return res.end('Error 404');
 }
